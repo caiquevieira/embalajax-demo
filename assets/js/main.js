@@ -120,11 +120,41 @@ function iniciarTracking() {
     if (!link || !analyticsCarregado) return;
     const evento = EVENTOS[link.dataset.track];
     if (!evento) return;
-    const origem = link.dataset.origem || '';
-    if (window.gtag && evento.ga) window.gtag('event', evento.ga, { origem });
-    if (window.fbq && evento.meta) window.fbq('track', evento.meta, { origem });
+    const params = { origem: link.dataset.origem || '' };
+    if (link.dataset.loja) params.loja = link.dataset.loja;
+    if (window.gtag && evento.ga) window.gtag('event', evento.ga, params);
+    if (window.fbq && evento.meta) window.fbq('track', evento.meta, params);
   });
+}
+
+/* WhatsApp por loja: links com data-whatsapp abrem o seletor #escolher-loja, que monta o
+   link de cada unidade com a mensagem do botão clicado. Sem JS (ou sem <dialog>), o link
+   segue para #lojas, onde cada card tem o WhatsApp da unidade. */
+function iniciarSeletorWhatsapp() {
+  const dialogo = document.getElementById('escolher-loja');
+  if (!dialogo || typeof dialogo.showModal !== 'function') return;
+  const lojas = dialogo.querySelectorAll('[data-wa-loja]');
+  const bases = [...lojas].map((a) => a.href.split('?')[0]);
+
+  document.addEventListener('click', (e) => {
+    const gatilho = e.target.closest('[data-whatsapp]');
+    if (!gatilho) return;
+    e.preventDefault();
+    const texto = encodeURIComponent(gatilho.dataset.waMsg || dialogo.dataset.waMsgPadrao || '');
+    lojas.forEach((a, i) => {
+      a.href = texto ? `${bases[i]}?text=${texto}` : bases[i];
+      a.dataset.origem = gatilho.dataset.origem || '';
+    });
+    dialogo.showModal();
+  });
+
+  // Clique fora da caixa (no fundo escurecido) fecha
+  dialogo.addEventListener('click', (e) => {
+    if (e.target === dialogo) dialogo.close();
+  });
+  lojas.forEach((a) => a.addEventListener('click', () => setTimeout(() => dialogo.close(), 0)));
 }
 
 iniciarConsentimento();
 iniciarTracking();
+iniciarSeletorWhatsapp();
